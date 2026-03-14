@@ -3,320 +3,173 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clickstream Partner Engagement Dashboard</title>
+  <title>Partner Product Analytics & Attribution Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
-    :root {
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --line: #e2e8f0;
-      --accent: #2563eb;
-      --shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-      --radius: 20px;
+    :root{
+      --bg:#f5f7fb;
+      --surface:#ffffff;
+      --surface2:#f9fbff;
+      --text:#172033;
+      --muted:#64748b;
+      --line:#e5eaf2;
+      --brand:#2563eb;
+      --brand2:#7c3aed;
+      --good:#0f9f6e;
+      --warn:#d97706;
+      --bad:#dc2626;
+      --radius:18px;
+      --shadow:0 14px 34px rgba(20,31,56,.08);
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, Arial, sans-serif; background: var(--bg); color: var(--text); }
-    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
-    .hero, .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-    .hero { padding: 28px; display: flex; justify-content: space-between; gap: 20px; align-items: center; flex-wrap: wrap; }
-    .badge { display: inline-block; background: #dbeafe; color: #1d4ed8; padding: 8px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
-    h1 { margin: 0 0 8px; font-size: 32px; line-height: 1.15; }
-    .sub { color: var(--muted); max-width: 850px; font-size: 14px; line-height: 1.6; }
-    .btns { display: flex; gap: 10px; flex-wrap: wrap; }
-    button { border: 1px solid var(--line); background: white; color: var(--text); padding: 12px 16px; border-radius: 14px; font-weight: 600; cursor: pointer; }
-    .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
-    .filters { margin-top: 18px; display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 14px; padding: 18px; }
-    input, select { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; font-size: 14px; background: white; }
-    .metrics { margin-top: 18px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
-    .metric { padding: 20px; }
-    .metric-label { color: var(--muted); font-size: 13px; }
-    .metric-value { font-size: 30px; font-weight: 800; margin-top: 8px; }
-    .metric-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
-    .grid-2, .grid-3 { margin-top: 18px; display: grid; gap: 16px; }
-    .grid-2 { grid-template-columns: 1.2fr 1fr; }
-    .grid-3 { grid-template-columns: 1.6fr 1fr; }
-    .card { padding: 20px; }
-    .card h3 { margin: 0 0 14px; font-size: 18px; }
-    .insight { background: #f8fafc; border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-top: 12px; line-height: 1.55; color: #334155; font-size: 14px; }
-    .chart-box { position: relative; height: 340px; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; }
-    th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .footer-note { margin-top: 16px; color: var(--muted); font-size: 12px; }
-    @media (max-width: 1100px) {
-      .metrics { grid-template-columns: repeat(2, 1fr); }
-      .filters { grid-template-columns: 1fr 1fr; }
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, Arial, Helvetica, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,.08), transparent 24%),
+        radial-gradient(circle at top right, rgba(124,58,237,.08), transparent 22%),
+        var(--bg);
     }
-    @media (max-width: 640px) {
-      .wrap { padding: 14px; }
-      .metrics { grid-template-columns: 1fr; }
-      .filters { grid-template-columns: 1fr; }
-      h1 { font-size: 26px; }
+    .container{max-width:1440px;margin:0 auto;padding:28px 18px 42px}
+    .hero{
+      background:linear-gradient(135deg, rgba(37,99,235,.96), rgba(124,58,237,.96));
+      color:#fff;border-radius:28px;padding:28px;box-shadow:var(--shadow);
+      display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:end;
+    }
+    .hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.05}
+    .hero p{margin:0;color:rgba(255,255,255,.9);max-width:900px}
+    .hero .pillwrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+    .pill{
+      padding:10px 12px;border-radius:999px;background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.18);font-size:13px
+    }
+    .grid{display:grid;gap:18px;margin-top:18px}
+    .controls{grid-template-columns:1.6fr 1.4fr}
+    .card{
+      background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);padding:18px
+    }
+    .card h2,.card h3{margin:0 0 10px}
+    .sub{color:var(--muted);font-size:13px}
+    .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .upload-box{
+      border:2px dashed #cfd7e6;border-radius:16px;padding:16px;background:var(--surface2);
+      min-height:136px;display:flex;flex-direction:column;justify-content:center;gap:10px
+    }
+    .upload-box strong{font-size:15px}
+    .upload-box small{color:var(--muted)}
+    .upload-box input[type=file]{display:block;width:100%}
+    .button-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+    button,.btn{
+      background:var(--brand);color:#fff;border:none;border-radius:12px;padding:11px 14px;
+      cursor:pointer;font-weight:600
+    }
+    button.secondary,.btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
+    button.ghost,.btn.ghost{background:#f8fafc;color:var(--text);border:1px solid var(--line)}
+    .toolbar{
+      display:grid;grid-template-columns:repeat(6, minmax(0,1fr));gap:12px;align-items:end
+    }
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=date], select{
+      width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff
+    }
+    .kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+    .kpi{
+      background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)
+    }
+    .kpi .label{font-size:12px;color:var(--muted);margin-bottom:8px}
+    .kpi .value{font-size:28px;font-weight:800;letter-spacing:-0.02em}
+    .kpi .delta{font-size:12px;margin-top:8px;color:var(--muted)}
+    .section-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-end}
+    .chart-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .chart-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+    .chart-wrap{height:340px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+    th{background:#f8fafc;position:sticky;top:0;z-index:1}
+    .insight{padding:12px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);margin-top:10px}
+    .tag{display:inline-block;padding:6px 9px;border-radius:999px;background:#eef4ff;color:#2457c5;font-size:12px;font-weight:600}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+    .muted{color:var(--muted)}
+    .split{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+    .empty{
+      color:var(--muted);font-size:14px;padding:22px;border:1px dashed #cfd7e6;border-radius:14px;background:#fbfdff
+    }
+    .footer-note{font-size:12px;color:var(--muted);margin-top:10px}
+    @media (max-width: 1200px){
+      .controls,.split,.chart-grid-2,.chart-grid-3,.kpis{grid-template-columns:1fr 1fr}
+      .toolbar{grid-template-columns:1fr 1fr 1fr}
+    }
+    @media (max-width: 820px){
+      .hero,.controls,.upload-grid,.split,.chart-grid-2,.chart-grid-3,.kpis{grid-template-columns:1fr}
+      .toolbar{grid-template-columns:1fr}
+      .hero .pillwrap{justify-content:flex-start}
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <section class="hero">
-      <div>
-        <div class="badge">Session-Level Clickstream + Attribution + Transactions</div>
-        <h1>Partner Engagement Analytics Dashboard</h1>
-        <div class="sub">
-          Analyze session-level clickstream data with marketing attribution and transactional datasets to identify funnel drop-offs, user journey patterns, and revenue optimization opportunities across partner campaigns.
+<div class="container">
+  <section class="hero">
+    <div>
+      <h1>Partner Product Analytics & Attribution Dashboard</h1>
+      <p>
+        Analyze partner-driven customer behavior with event-level clickstream tracking, user journey path analysis,
+        funnel performance, and first-touch / last-touch attribution in one executive-ready tool.
+      </p>
+    </div>
+    <div class="pillwrap">
+      <span class="pill">Product Analytics</span>
+      <span class="pill">Marketing Attribution</span>
+      <span class="pill">Partner Analytics</span>
+      <span class="pill">Amplitude-style Positioning</span>
+    </div>
+  </section>
+
+  <section class="grid controls">
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Upload Data</h2>
+          <div class="sub">Use one or both modes. Event CSV powers clickstream, path, and attribution analysis.</div>
+        </div>
+        <span class="tag">2 upload modes</span>
+      </div>
+      <div class="upload-grid">
+        <div class="upload-box">
+          <strong>Aggregated Performance CSV</strong>
+          <small>Columns: date, partner, channel, campaign, sessions, product_views, carts, transactions, revenue, spend</small>
+          <input id="aggFile" type="file" accept=".csv" />
+        </div>
+        <div class="upload-box">
+          <strong>Event-level Clickstream CSV</strong>
+          <small>Columns: event_time, session_id, user_id, partner, channel, campaign, event_name, page_name, product_id, revenue</small>
+          <input id="eventFile" type="file" accept=".csv" />
         </div>
       </div>
-      <div class="btns">
-        <button onclick="window.print()">Export PDF</button>
-        <button class="btn-primary" onclick="alert('Executive summary view can be customized next.')">Executive View</button>
+      <div class="button-row">
+        <button id="loadSampleBtn">Load Sample Event Data</button>
+        <button class="secondary" id="downloadAggBtn">Download Sample Aggregated CSV</button>
+        <button class="secondary" id="downloadEventBtn">Download Sample Event CSV</button>
+        <button class="ghost" id="resetBtn">Reset</button>
       </div>
-    </section>
-
-    <section class="hero filters">
-      <input id="searchBox" placeholder="Search partner, channel, or campaign" />
-      <select id="partnerFilter"></select>
-      <select id="channelFilter"></select>
-      <button onclick="resetFilters()">Reset</button>
-    </section>
-
-    <section class="metrics" id="metrics"></section>
-
-    <section class="grid-2">
-      <div class="card">
-        <h3>Conversion Funnel Drop-Off</h3>
-        <div class="chart-box"><canvas id="dropoffChart"></canvas></div>
+      <div class="footer-note">
+        If you upload only event data, the dashboard derives funnel and aggregated metrics automatically.
       </div>
-      <div class="card">
-        <h3>Stage Progression</h3>
-        <div class="chart-box"><canvas id="funnelChart"></canvas></div>
-      </div>
-    </section>
+    </div>
 
-    <section class="grid-3">
-      <div class="card">
-        <h3>Sessions, Transactions, and Revenue Trend</h3>
-        <div class="chart-box"><canvas id="trendChart"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>Executive Insight</h3>
-        <div class="insight" id="topInsight"></div>
-        <div class="insight">
-          <strong>Recommended action:</strong> Focus optimization on the largest drop-off stage, then segment by partner and channel to improve campaign efficiency, session quality, and attributed revenue.
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Filters</h2>
+          <div class="sub">Slice by date, partner, channel, and campaign.</div>
         </div>
-        <div class="insight">
-          <strong>Use case:</strong> Portfolio demo for BI Manager, Senior Data Analyst, Product Analytics, Partner Marketing Analytics, or Growth Analytics interviews.
-        </div>
+        <span class="tag">Interactive</span>
       </div>
-    </section>
-
-    <section class="card" style="margin-top: 18px;">
-      <h3>Partner Attribution Dataset</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Partner</th>
-            <th>Channel</th>
-            <th>Campaign</th>
-            <th>Sessions</th>
-            <th>Transactions</th>
-            <th>Revenue</th>
-            <th>Spend</th>
-            <th>Conv. Rate</th>
-          </tr>
-        </thead>
-        <tbody id="dataTable"></tbody>
-      </table>
-      <div class="footer-note">Single-file HTML dashboard. Edit the sample dataset in the script section to swap in your own partners, campaigns, or branding.</div>
-    </section>
-  </div>
-
-  <script>
-    const baseData = [
-      { partner: 'JPJ', channel: 'Paid Social', campaign: 'Spring Promo', sessions: 18240, productViews: 12980, addToCart: 5310, checkout: 2480, purchases: 1312, revenue: 186400, spend: 42000, transactions: 1312, bounceRate: 34 },
-      { partner: 'MAMANO', channel: 'Email', campaign: 'VIP Lighting', sessions: 9420, productViews: 7380, addToCart: 3310, checkout: 1710, purchases: 1048, revenue: 154200, spend: 12000, transactions: 1048, bounceRate: 22 },
-      { partner: 'Amano', channel: 'Organic Search', campaign: 'Event Rentals', sessions: 13650, productViews: 9640, addToCart: 3520, checkout: 1492, purchases: 721, revenue: 93400, spend: 8000, transactions: 721, bounceRate: 38 },
-      { partner: 'Bags', channel: 'Affiliate', campaign: 'Production Bundle', sessions: 11420, productViews: 7860, addToCart: 2860, checkout: 1330, purchases: 644, revenue: 88200, spend: 14500, transactions: 644, bounceRate: 31 },
-      { partner: 'Delta Crew', channel: 'Direct', campaign: 'Crew Essentials', sessions: 8720, productViews: 6120, addToCart: 2410, checkout: 1264, purchases: 892, revenue: 126300, spend: 5000, transactions: 892, bounceRate: 19 }
-    ];
-
-    const trendData = [
-      { month: 'Jan', sessions: 12400, transactions: 630, revenue: 84200 },
-      { month: 'Feb', sessions: 13150, transactions: 704, revenue: 90100 },
-      { month: 'Mar', sessions: 14920, transactions: 812, revenue: 102400 },
-      { month: 'Apr', sessions: 16230, transactions: 910, revenue: 117900 },
-      { month: 'May', sessions: 17410, transactions: 1022, revenue: 131800 },
-      { month: 'Jun', sessions: 18360, transactions: 1094, revenue: 144200 }
-    ];
-
-    const fmt = n => new Intl.NumberFormat('en-US').format(n);
-    const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-
-    const els = {
-      searchBox: document.getElementById('searchBox'),
-      partnerFilter: document.getElementById('partnerFilter'),
-      channelFilter: document.getElementById('channelFilter'),
-      metrics: document.getElementById('metrics'),
-      dataTable: document.getElementById('dataTable'),
-      topInsight: document.getElementById('topInsight')
-    };
-
-    let dropoffChart, funnelChart, trendChart;
-
-    function setOptions() {
-      const partners = ['all', ...new Set(baseData.map(d => d.partner))];
-      const channels = ['all', ...new Set(baseData.map(d => d.channel))];
-      els.partnerFilter.innerHTML = partners.map(v => `<option value="${v}">${v === 'all' ? 'All partners' : v}</option>`).join('');
-      els.channelFilter.innerHTML = channels.map(v => `<option value="${v}">${v === 'all' ? 'All channels' : v}</option>`).join('');
-    }
-
-    function getFiltered() {
-      const q = els.searchBox.value.trim().toLowerCase();
-      const partner = els.partnerFilter.value;
-      const channel = els.channelFilter.value;
-      return baseData.filter(r => {
-        const text = `${r.partner} ${r.channel} ${r.campaign}`.toLowerCase();
-        return (partner === 'all' || r.partner === partner) &&
-               (channel === 'all' || r.channel === channel) &&
-               (!q || text.includes(q));
-      });
-    }
-
-    function aggregate(rows) {
-      const t = rows.reduce((a, r) => {
-        a.sessions += r.sessions;
-        a.productViews += r.productViews;
-        a.addToCart += r.addToCart;
-        a.checkout += r.checkout;
-        a.purchases += r.purchases;
-        a.revenue += r.revenue;
-        a.spend += r.spend;
-        a.transactions += r.transactions;
-        a.bounceWeighted += r.bounceRate * r.sessions;
-        return a;
-      }, { sessions:0, productViews:0, addToCart:0, checkout:0, purchases:0, revenue:0, spend:0, transactions:0, bounceWeighted:0 });
-      t.conversionRate = t.sessions ? (t.purchases / t.sessions * 100) : 0;
-      t.bounceRate = t.sessions ? (t.bounceWeighted / t.sessions) : 0;
-      t.roi = t.spend ? ((t.revenue - t.spend) / t.spend * 100) : 0;
-      t.aov = t.transactions ? (t.revenue / t.transactions) : 0;
-      return t;
-    }
-
-    function renderMetrics(t) {
-      const cards = [
-        ['Sessions', fmt(t.sessions), 'User visits tracked'],
-        ['Transactions', fmt(t.transactions), 'Completed purchases'],
-        ['Revenue', money(t.revenue), 'Attributed revenue'],
-        ['Conversion Rate', `${t.conversionRate.toFixed(1)}%`, 'Session to purchase'],
-        ['Bounce Rate', `${t.bounceRate.toFixed(1)}%`, 'Single-step exits']
-      ];
-      els.metrics.innerHTML = cards.map(([label, value, sub]) => `
-        <div class="card metric">
-          <div class="metric-label">${label}</div>
-          <div class="metric-value">${value}</div>
-          <div class="metric-sub">${sub}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderTable(rows) {
-      els.dataTable.innerHTML = rows.map(r => `
-        <tr>
-          <td><strong>${r.partner}</strong></td>
-          <td>${r.channel}</td>
-          <td>${r.campaign}</td>
-          <td class="num">${fmt(r.sessions)}</td>
-          <td class="num">${fmt(r.transactions)}</td>
-          <td class="num">${money(r.revenue)}</td>
-          <td class="num">${money(r.spend)}</td>
-          <td class="num">${((r.purchases/r.sessions)*100).toFixed(1)}%</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderInsight(t) {
-      const drops = [
-        ['Session → Product View', t.sessions - t.productViews],
-        ['Product View → Add to Cart', t.productViews - t.addToCart],
-        ['Add to Cart → Checkout', t.addToCart - t.checkout],
-        ['Checkout → Purchase', t.checkout - t.purchases]
-      ].sort((a,b) => b[1]-a[1]);
-      const top = drops[0];
-      els.topInsight.innerHTML = `<strong>Primary finding:</strong> Largest funnel drop-off is at <strong>${top[0]}</strong> with <strong>${fmt(top[1])}</strong> sessions exiting before the next stage. This is the clearest optimization opportunity for improving partner engagement and attributed revenue.`;
-    }
-
-    function renderCharts(t) {
-      const dropoffs = [t.sessions - t.productViews, t.productViews - t.addToCart, t.addToCart - t.checkout, t.checkout - t.purchases];
-      const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } } };
-
-      if (dropoffChart) dropoffChart.destroy();
-      dropoffChart = new Chart(document.getElementById('dropoffChart'), {
-        type: 'bar',
-        data: {
-          labels: ['Session → View', 'View → Cart', 'Cart → Checkout', 'Checkout → Purchase'],
-          datasets: [{ label: 'Drop-Off Sessions', data: dropoffs, borderWidth: 1 }]
-        },
-        options: { ...commonOptions, scales: { y: { ticks: { callback: value => fmt(value) } } } }
-      });
-
-      if (funnelChart) funnelChart.destroy();
-      funnelChart = new Chart(document.getElementById('funnelChart'), {
-        type: 'bar',
-        data: {
-          labels: ['Sessions', 'Product Views', 'Add to Cart', 'Checkout', 'Purchases'],
-          datasets: [{ label: 'Users by Stage', data: [t.sessions, t.productViews, t.addToCart, t.checkout, t.purchases], borderWidth: 1 }]
-        },
-        options: { ...commonOptions, indexAxis: 'y', scales: { x: { ticks: { callback: value => fmt(value) } } } }
-      });
-
-      if (trendChart) trendChart.destroy();
-      trendChart = new Chart(document.getElementById('trendChart'), {
-        type: 'line',
-        data: {
-          labels: trendData.map(d => d.month),
-          datasets: [
-            { label: 'Sessions', data: trendData.map(d => d.sessions), yAxisID: 'y' },
-            { label: 'Transactions', data: trendData.map(d => d.transactions), yAxisID: 'y' },
-            { label: 'Revenue', data: trendData.map(d => d.revenue), yAxisID: 'y1' }
-          ]
-        },
-        options: {
-          ...commonOptions,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y: { type: 'linear', position: 'left', ticks: { callback: v => fmt(v) } },
-            y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '$' + Math.round(v/1000) + 'k' } }
-          }
-        }
-      });
-    }
-
-    function render() {
-      const rows = getFiltered();
-      const totals = aggregate(rows);
-      renderMetrics(totals);
-      renderTable(rows);
-      renderInsight(totals);
-      renderCharts(totals);
-    }
-
-    function resetFilters() {
-      els.searchBox.value = '';
-      els.partnerFilter.value = 'all';
-      els.channelFilter.value = 'all';
-      render();
-    }
-    window.resetFilters = resetFilters;
-
-    setOptions();
-    ['input', 'change'].forEach(evt => {
-      els.searchBox.addEventListener(evt, render);
-      els.partnerFilter.addEventListener(evt, render);
-      els.channelFilter.addEventListener(evt, render);
-    });
-    render();
-  </script>
-</body>
-</html>
+      <div class="toolbar">
+        <div>
