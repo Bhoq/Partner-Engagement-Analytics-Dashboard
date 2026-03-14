@@ -1,0 +1,897 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Product Analytics & Attribution Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --surface:#ffffff;
+      --surface2:#f9fbff;
+      --text:#172033;
+      --muted:#64748b;
+      --line:#e5eaf2;
+      --brand:#2563eb;
+      --brand2:#7c3aed;
+      --good:#0f9f6e;
+      --warn:#d97706;
+      --bad:#dc2626;
+      --radius:18px;
+      --shadow:0 14px 34px rgba(20,31,56,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter, Arial, Helvetica, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,.08), transparent 24%),
+        radial-gradient(circle at top right, rgba(124,58,237,.08), transparent 22%),
+        var(--bg);
+    }
+    .container{max-width:1440px;margin:0 auto;padding:28px 18px 42px}
+    .hero{
+      background:linear-gradient(135deg, rgba(37,99,235,.96), rgba(124,58,237,.96));
+      color:#fff;border-radius:28px;padding:28px;box-shadow:var(--shadow);
+      display:grid;grid-template-columns:2fr 1fr;gap:18px;align-items:end;
+    }
+    .hero h1{margin:0 0 8px;font-size:clamp(28px,4vw,40px);line-height:1.05}
+    .hero p{margin:0;color:rgba(255,255,255,.9);max-width:900px}
+    .hero .pillwrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+    .pill{
+      padding:10px 12px;border-radius:999px;background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.18);font-size:13px
+    }
+    .grid{display:grid;gap:18px;margin-top:18px}
+    .controls{grid-template-columns:1.6fr 1.4fr}
+    .card{
+      background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);padding:18px
+    }
+    .card h2,.card h3{margin:0 0 10px}
+    .sub{color:var(--muted);font-size:13px}
+    .upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .upload-box{
+      border:2px dashed #cfd7e6;border-radius:16px;padding:16px;background:var(--surface2);
+      min-height:136px;display:flex;flex-direction:column;justify-content:center;gap:10px
+    }
+    .upload-box strong{font-size:15px}
+    .upload-box small{color:var(--muted)}
+    .upload-box input[type=file]{display:block;width:100%}
+    .button-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+    button,.btn{
+      background:var(--brand);color:#fff;border:none;border-radius:12px;padding:11px 14px;
+      cursor:pointer;font-weight:600
+    }
+    button.secondary,.btn.secondary{background:#fff;color:var(--text);border:1px solid var(--line)}
+    button.ghost,.btn.ghost{background:#f8fafc;color:var(--text);border:1px solid var(--line)}
+    .toolbar{
+      display:grid;grid-template-columns:repeat(6, minmax(0,1fr));gap:12px;align-items:end
+    }
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=date], select{
+      width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff
+    }
+    .kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+    .kpi{
+      background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)
+    }
+    .kpi .label{font-size:12px;color:var(--muted);margin-bottom:8px}
+    .kpi .value{font-size:28px;font-weight:800;letter-spacing:-0.02em}
+    .kpi .delta{font-size:12px;margin-top:8px;color:var(--muted)}
+    .section-title{display:flex;justify-content:space-between;gap:10px;align-items:flex-end}
+    .chart-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .chart-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+    .chart-wrap{height:340px}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;background:#fff}
+    th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+    th{background:#f8fafc;position:sticky;top:0;z-index:1}
+    .insight{padding:12px;border-radius:14px;background:#f8fafc;border:1px solid var(--line);margin-top:10px}
+    .tag{display:inline-block;padding:6px 9px;border-radius:999px;background:#eef4ff;color:#2457c5;font-size:12px;font-weight:600}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
+    .muted{color:var(--muted)}
+    .split{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+    .empty{
+      color:var(--muted);font-size:14px;padding:22px;border:1px dashed #cfd7e6;border-radius:14px;background:#fbfdff
+    }
+    .footer-note{font-size:12px;color:var(--muted);margin-top:10px}
+    @media (max-width: 1200px){
+      .controls,.split,.chart-grid-2,.chart-grid-3,.kpis{grid-template-columns:1fr 1fr}
+      .toolbar{grid-template-columns:1fr 1fr 1fr}
+    }
+    @media (max-width: 820px){
+      .hero,.controls,.upload-grid,.split,.chart-grid-2,.chart-grid-3,.kpis{grid-template-columns:1fr}
+      .toolbar{grid-template-columns:1fr}
+      .hero .pillwrap{justify-content:flex-start}
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <section class="hero">
+    <div>
+      <h1>Partner Product Analytics & Attribution Dashboard</h1>
+      <p>
+        Analyze partner-driven customer behavior with event-level clickstream tracking, user journey path analysis,
+        funnel performance, and first-touch / last-touch attribution in one executive-ready tool.
+      </p>
+    </div>
+    <div class="pillwrap">
+      <span class="pill">Product Analytics</span>
+      <span class="pill">Marketing Attribution</span>
+      <span class="pill">Partner Analytics</span>
+      <span class="pill">Amplitude-style Positioning</span>
+    </div>
+  </section>
+
+  <section class="grid controls">
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Upload Data</h2>
+          <div class="sub">Use one or both modes. Event CSV powers clickstream, path, and attribution analysis.</div>
+        </div>
+        <span class="tag">2 upload modes</span>
+      </div>
+      <div class="upload-grid">
+        <div class="upload-box">
+          <strong>Aggregated Performance CSV</strong>
+          <small>Columns: date, partner, channel, campaign, sessions, product_views, carts, transactions, revenue, spend</small>
+          <input id="aggFile" type="file" accept=".csv" />
+        </div>
+        <div class="upload-box">
+          <strong>Event-level Clickstream CSV</strong>
+          <small>Columns: event_time, session_id, user_id, partner, channel, campaign, event_name, page_name, product_id, revenue</small>
+          <input id="eventFile" type="file" accept=".csv" />
+        </div>
+      </div>
+      <div class="button-row">
+        <button id="loadSampleBtn">Load Sample Event Data</button>
+        <button class="secondary" id="downloadAggBtn">Download Sample Aggregated CSV</button>
+        <button class="secondary" id="downloadEventBtn">Download Sample Event CSV</button>
+        <button class="ghost" id="resetBtn">Reset</button>
+      </div>
+      <div class="footer-note">
+        If you upload only event data, the dashboard derives funnel and aggregated metrics automatically.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Filters</h2>
+          <div class="sub">Slice by date, partner, channel, and campaign.</div>
+        </div>
+        <span class="tag">Interactive</span>
+      </div>
+      <div class="toolbar">
+        <div>
+          <label>Start Date</label>
+          <input id="startDate" type="date" />
+        </div>
+        <div>
+          <label>End Date</label>
+          <input id="endDate" type="date" />
+        </div>
+        <div>
+          <label>Partner</label>
+          <select id="partnerFilter"><option value="All">All</option></select>
+        </div>
+        <div>
+          <label>Channel</label>
+          <select id="channelFilter"><option value="All">All</option></select>
+        </div>
+        <div>
+          <label>Campaign</label>
+          <select id="campaignFilter"><option value="All">All</option></select>
+        </div>
+        <div class="button-row" style="margin-top:0">
+          <button id="applyBtn">Apply</button>
+          <button class="secondary" id="exportPdfBtn">Export PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid kpis" id="kpiSection">
+    <div class="kpi"><div class="label">Unique Users</div><div class="value" id="kpiUsers">0</div><div class="delta" id="deltaUsers">event-level audience size</div></div>
+    <div class="kpi"><div class="label">Unique Sessions</div><div class="value" id="kpiSessions">0</div><div class="delta">clickstream session count</div></div>
+    <div class="kpi"><div class="label">Purchases</div><div class="value" id="kpiPurchases">0</div><div class="delta">completed transactions</div></div>
+    <div class="kpi"><div class="label">Revenue</div><div class="value" id="kpiRevenue">$0</div><div class="delta">tracked purchase revenue</div></div>
+    <div class="kpi"><div class="label">Conversion Rate</div><div class="value" id="kpiConv">0.0%</div><div class="delta">purchases / sessions</div></div>
+    <div class="kpi"><div class="label">ROAS</div><div class="value" id="kpiRoas">0.0x</div><div class="delta">revenue / spend</div></div>
+  </section>
+
+  <section class="grid split">
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Executive Insights</h2>
+          <div class="sub">Auto-generated summary from the current filtered dataset.</div>
+        </div>
+      </div>
+      <div id="insightsBox" class="empty">Upload data to generate insights.</div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div>
+          <h2>Current View Summary</h2>
+          <div class="sub">What the dashboard is analyzing right now.</div>
+        </div>
+      </div>
+      <div id="scopeBox" class="insight"></div>
+    </div>
+  </section>
+
+  <section class="grid chart-grid-2">
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Event Trend Over Time</h2><div class="sub">Daily event volume from clickstream data.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="eventTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Top Event Types</h2><div class="sub">What users do most often.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="eventTypeChart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="grid chart-grid-3">
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Funnel Analysis</h2><div class="sub">Modeled from aggregated or event data.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="funnelChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Revenue by Partner</h2><div class="sub">Partner ecosystem value contribution.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="partnerRevenueChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Channel Performance</h2><div class="sub">Revenue by channel.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="channelChart"></canvas></div>
+    </div>
+  </section>
+
+  <section class="grid chart-grid-2">
+    <div class="card">
+      <div class="section-title">
+        <div><h2>User Journey Paths</h2><div class="sub">Top session paths reconstructed from event order.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="pathChart"></canvas></div>
+      <div class="footer-note">Path logic groups events by session, sorts by timestamp, and displays the most common sequences.</div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Attribution Comparison</h2><div class="sub">First-touch vs last-touch revenue by partner.</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="attributionChart"></canvas></div>
+      <div class="footer-note">Helps show who starts the journey versus who closes it.</div>
+    </div>
+  </section>
+
+  <section class="grid chart-grid-2">
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Top Journey Paths Table</h2><div class="sub">Most frequent conversion and drop-off sequences.</div></div>
+      </div>
+      <div class="table-wrap"><table id="pathTable"></table></div>
+    </div>
+    <div class="card">
+      <div class="section-title">
+        <div><h2>Partner Performance Table</h2><div class="sub">Sessions, purchases, revenue, and spend by partner.</div></div>
+      </div>
+      <div class="table-wrap"><table id="partnerTable"></table></div>
+    </div>
+  </section>
+</div>
+
+<script>
+  Chart.register(ChartDataLabels);
+
+  const fmt = {
+    int: n => Number(n || 0).toLocaleString(),
+    money: n => '$' + Number(n || 0).toLocaleString(undefined, {maximumFractionDigits: 0}),
+    pct: n => (Number(n || 0) * 100).toFixed(1) + '%',
+    ratio: n => Number(n || 0).toFixed(1) + 'x'
+  };
+
+  let aggregatedRows = [];
+  let eventRows = [];
+  let filteredAggregated = [];
+  let filteredEvents = [];
+
+  const charts = {};
+
+  function safeNum(v){
+    const n = parseFloat(String(v ?? '').replace(/[$,]/g,''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  function normalizeDate(v){
+    if (!v) return '';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toISOString().slice(0,10);
+  }
+  function getEventDate(row){
+    return normalizeDate(row.event_time || row.date);
+  }
+  function csvDownload(filename, rows){
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }
+  function setOptions(selectEl, values){
+    const current = selectEl.value || 'All';
+    selectEl.innerHTML = '<option value="All">All</option>' + values.filter(Boolean).sort().map(v => `<option>${v}</option>`).join('');
+    if ([...selectEl.options].some(o => o.value === current)) selectEl.value = current;
+  }
+  function unique(values){ return [...new Set(values.filter(Boolean))]; }
+
+  function parseCsvFile(file, onDone){
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => onDone((res.data || []).map(r => Object.fromEntries(Object.entries(r).map(([k,v]) => [String(k).trim(), typeof v === 'string' ? v.trim() : v]))))
+    });
+  }
+
+  function sampleAggregated(){
+    return [
+      {date:'2026-03-01', partner:'Delta', channel:'Affiliate', campaign:'Spring Push', sessions:420, product_views:260, carts:115, transactions:52, revenue:9200, spend:1900},
+      {date:'2026-03-01', partner:'Southwest', channel:'Paid Search', campaign:'Spring Push', sessions:350, product_views:210, carts:98, transactions:38, revenue:6400, spend:1500},
+      {date:'2026-03-02', partner:'JetBlue', channel:'Email', campaign:'Retention 1', sessions:210, product_views:150, carts:65, transactions:27, revenue:4800, spend:500},
+      {date:'2026-03-03', partner:'Delta', channel:'Affiliate', campaign:'Weekend Offer', sessions:300, product_views:190, carts:84, transactions:35, revenue:6100, spend:1200},
+      {date:'2026-03-04', partner:'United', channel:'Social', campaign:'Weekend Offer', sessions:260, product_views:138, carts:56, transactions:20, revenue:3300, spend:900}
+    ];
+  }
+
+  function sampleEvents(){
+    const rows = [];
+    const templates = [
+      {partner:'Delta', channel:'Affiliate', campaign:'Spring Push', product:'P100', revenue:180},
+      {partner:'Southwest', channel:'Paid Search', campaign:'Spring Push', product:'P200', revenue:150},
+      {partner:'JetBlue', channel:'Email', campaign:'Retention 1', product:'P300', revenue:210},
+      {partner:'United', channel:'Social', campaign:'Weekend Offer', product:'P400', revenue:130}
+    ];
+    let sid = 1, uid = 1000;
+    const days = ['2026-03-01','2026-03-02','2026-03-03','2026-03-04','2026-03-05'];
+    days.forEach((day, dayIdx) => {
+      templates.forEach((t, i) => {
+        for (let j=0; j<12; j++){
+          const sessionId = 'S' + String(sid++).padStart(4,'0');
+          const userId = 'U' + String(uid + (j % 25)).padStart(4,'0');
+          const h = 9 + ((j+i+dayIdx) % 9);
+          rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:00:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'partner_click', page_name:'Landing', product_id:'', revenue:''});
+          rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:01:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'session_start', page_name:'Home', product_id:'', revenue:''});
+          rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:02:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'view_product', page_name:'Product Detail', product_id:t.product, revenue:''});
+          const convert = (j % 4 !== 0);
+          const addCart = (j % 6 !== 0);
+          if (addCart){
+            rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:03:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'add_to_cart', page_name:'Cart', product_id:t.product, revenue:''});
+          }
+          if (convert){
+            rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:04:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'begin_checkout', page_name:'Checkout', product_id:t.product, revenue:''});
+            rows.push({event_time:`${day} ${String(h).padStart(2,'0')}:05:00`, session_id:sessionId, user_id:userId, partner:t.partner, channel:t.channel, campaign:t.campaign, event_name:'purchase', page_name:'Confirmation', product_id:t.product, revenue:t.revenue + ((j % 3) * 25)});
+          }
+        }
+      });
+    });
+    return rows;
+  }
+
+  function deriveAggregatedFromEvents(rows){
+    const map = new Map();
+    rows.forEach(r => {
+      const date = getEventDate(r);
+      const partner = r.partner || 'Unknown';
+      const channel = r.channel || 'Unknown';
+      const campaign = r.campaign || 'Unknown';
+      const key = [date, partner, channel, campaign].join('|');
+      if (!map.has(key)){
+        map.set(key, {date, partner, channel, campaign, sessions:0, product_views:0, carts:0, transactions:0, revenue:0, spend:0});
+      }
+      const o = map.get(key);
+      if ((r.event_name || '').toLowerCase() === 'session_start') o.sessions += 1;
+      if ((r.event_name || '').toLowerCase() === 'view_product') o.product_views += 1;
+      if ((r.event_name || '').toLowerCase() === 'add_to_cart') o.carts += 1;
+      if ((r.event_name || '').toLowerCase() === 'purchase'){
+        o.transactions += 1;
+        o.revenue += safeNum(r.revenue);
+      }
+    });
+    return [...map.values()];
+  }
+
+  function refreshFilterOptions(){
+    const sourceAgg = aggregatedRows.length ? aggregatedRows : deriveAggregatedFromEvents(eventRows);
+    setOptions(document.getElementById('partnerFilter'), unique([
+      ...sourceAgg.map(r => r.partner),
+      ...eventRows.map(r => r.partner)
+    ]));
+    setOptions(document.getElementById('channelFilter'), unique([
+      ...sourceAgg.map(r => r.channel),
+      ...eventRows.map(r => r.channel)
+    ]));
+    setOptions(document.getElementById('campaignFilter'), unique([
+      ...sourceAgg.map(r => r.campaign),
+      ...eventRows.map(r => r.campaign)
+    ]));
+  }
+
+  function passFilterCommon(date, partner, channel, campaign){
+    const s = document.getElementById('startDate').value;
+    const e = document.getElementById('endDate').value;
+    const p = document.getElementById('partnerFilter').value;
+    const c = document.getElementById('channelFilter').value;
+    const m = document.getElementById('campaignFilter').value;
+    if (s && date && date < s) return false;
+    if (e && date && date > e) return false;
+    if (p !== 'All' && (partner || 'Unknown') !== p) return false;
+    if (c !== 'All' && (channel || 'Unknown') !== c) return false;
+    if (m !== 'All' && (campaign || 'Unknown') !== m) return false;
+    return true;
+  }
+
+  function applyFilters(){
+    const sourceAgg = aggregatedRows.length ? aggregatedRows : deriveAggregatedFromEvents(eventRows);
+
+    filteredAggregated = sourceAgg.filter(r => passFilterCommon(normalizeDate(r.date), r.partner, r.channel, r.campaign));
+    filteredEvents = eventRows.filter(r => passFilterCommon(getEventDate(r), r.partner, r.channel, r.campaign));
+
+    renderDashboard();
+  }
+
+  function sum(rows, field){ return rows.reduce((a,b) => a + safeNum(b[field]), 0); }
+  function groupSum(rows, keyField, valueField){
+    const map = new Map();
+    rows.forEach(r => map.set(r[keyField] || 'Unknown', (map.get(r[keyField] || 'Unknown') || 0) + safeNum(r[valueField])));
+    return [...map.entries()].sort((a,b)=>b[1]-a[1]);
+  }
+  function groupCount(rows, keyFn){
+    const map = new Map();
+    rows.forEach(r => map.set(keyFn(r), (map.get(keyFn(r)) || 0) + 1));
+    return [...map.entries()].sort((a,b)=>b[1]-a[1]);
+  }
+  function makeChart(id, config){
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(document.getElementById(id), config);
+  }
+
+  function computeSessionPaths(events){
+    const bySession = new Map();
+    events.forEach(r => {
+      const sid = r.session_id || ('missing-' + Math.random());
+      if (!bySession.has(sid)) bySession.set(sid, []);
+      bySession.get(sid).push(r);
+    });
+
+    const results = [];
+    bySession.forEach((arr, sid) => {
+      arr.sort((a,b) => new Date(a.event_time) - new Date(b.event_time));
+      const path = arr.map(x => x.event_name || 'unknown').join(' → ');
+      const purchased = arr.some(x => String(x.event_name).toLowerCase() === 'purchase');
+      const rev = arr.filter(x => String(x.event_name).toLowerCase() === 'purchase').reduce((a,b)=>a+safeNum(b.revenue),0);
+      const first = arr[0] || {};
+      results.push({
+        session_id: sid,
+        user_id: first.user_id || '',
+        partner: first.partner || 'Unknown',
+        channel: first.channel || 'Unknown',
+        campaign: first.campaign || 'Unknown',
+        path,
+        converted: purchased ? 'Yes' : 'No',
+        revenue: rev
+      });
+    });
+
+    const pathMap = new Map();
+    results.forEach(r => {
+      const key = r.path;
+      if (!pathMap.has(key)) pathMap.set(key, {path:key, sessions:0, conversions:0, revenue:0});
+      const o = pathMap.get(key);
+      o.sessions += 1;
+      o.conversions += (r.converted === 'Yes' ? 1 : 0);
+      o.revenue += r.revenue;
+    });
+
+    const agg = [...pathMap.values()]
+      .map(r => ({...r, conversion_rate: r.sessions ? r.conversions / r.sessions : 0}))
+      .sort((a,b)=>b.sessions-a.sessions);
+
+    return {sessionPaths: results, topPaths: agg};
+  }
+
+  function computeAttribution(events){
+    const byUser = new Map();
+    events.forEach(r => {
+      const uid = r.user_id || r.session_id || 'anon';
+      if (!byUser.has(uid)) byUser.set(uid, []);
+      byUser.get(uid).push(r);
+    });
+
+    const firstTouch = new Map();
+    const lastTouch = new Map();
+
+    byUser.forEach(arr => {
+      arr.sort((a,b) => new Date(a.event_time) - new Date(b.event_time));
+      const purchases = arr.filter(x => String(x.event_name).toLowerCase() === 'purchase');
+      purchases.forEach(p => {
+        const prior = arr.filter(x => new Date(x.event_time) <= new Date(p.event_time));
+        const first = prior.find(x => x.partner || x.channel) || {};
+        const last = [...prior].reverse().find(x => x.partner || x.channel) || {};
+        const rev = safeNum(p.revenue);
+        const fp = first.partner || 'Unknown';
+        const lp = last.partner || 'Unknown';
+        firstTouch.set(fp, (firstTouch.get(fp) || 0) + rev);
+        lastTouch.set(lp, (lastTouch.get(lp) || 0) + rev);
+      });
+    });
+
+    return {
+      firstTouch:[...firstTouch.entries()].sort((a,b)=>b[1]-a[1]),
+      lastTouch:[...lastTouch.entries()].sort((a,b)=>b[1]-a[1])
+    };
+  }
+
+  function buildPartnerTableRows(){
+    const base = filteredAggregated.length ? filteredAggregated : deriveAggregatedFromEvents(filteredEvents);
+    const spendMap = new Map();
+    base.forEach(r => spendMap.set(r.partner || 'Unknown', (spendMap.get(r.partner || 'Unknown') || 0) + safeNum(r.spend)));
+    const sessMap = new Map();
+    const purMap = new Map();
+    const revMap = new Map();
+
+    if (filteredEvents.length){
+      filteredEvents.forEach(r => {
+        const p = r.partner || 'Unknown';
+        if (String(r.event_name).toLowerCase() === 'session_start') sessMap.set(p, (sessMap.get(p) || 0) + 1);
+        if (String(r.event_name).toLowerCase() === 'purchase'){
+          purMap.set(p, (purMap.get(p) || 0) + 1);
+          revMap.set(p, (revMap.get(p) || 0) + safeNum(r.revenue));
+        }
+      });
+    } else {
+      base.forEach(r => {
+        const p = r.partner || 'Unknown';
+        sessMap.set(p, (sessMap.get(p) || 0) + safeNum(r.sessions));
+        purMap.set(p, (purMap.get(p) || 0) + safeNum(r.transactions));
+        revMap.set(p, (revMap.get(p) || 0) + safeNum(r.revenue));
+      });
+    }
+
+    const partners = unique([...sessMap.keys(), ...purMap.keys(), ...revMap.keys(), ...spendMap.keys()]);
+    return partners.map(p => {
+      const sessions = sessMap.get(p) || 0;
+      const purchases = purMap.get(p) || 0;
+      const revenue = revMap.get(p) || 0;
+      const spend = spendMap.get(p) || 0;
+      return {
+        partner:p,
+        sessions,
+        purchases,
+        revenue,
+        spend,
+        conversion_rate: sessions ? purchases/sessions : 0,
+        roas: spend ? revenue/spend : 0
+      };
+    }).sort((a,b)=>b.revenue-a.revenue);
+  }
+
+  function renderTable(tableId, columns, rows, formatters={}){
+    const table = document.getElementById(tableId);
+    let html = '<thead><tr>' + columns.map(c => `<th>${c.label}</th>`).join('') + '</tr></thead>';
+    html += '<tbody>';
+    if (!rows.length){
+      html += `<tr><td colspan="${columns.length}" class="muted">No data in current view.</td></tr>`;
+    } else {
+      html += rows.map(r => '<tr>' + columns.map(c => {
+        const raw = r[c.key];
+        const out = formatters[c.key] ? formatters[c.key](raw, r) : raw;
+        return `<td>${out ?? ''}</td>`;
+      }).join('') + '</tr>').join('');
+    }
+    html += '</tbody>';
+    table.innerHTML = html;
+  }
+
+  function renderDashboard(){
+    const base = filteredAggregated.length ? filteredAggregated : deriveAggregatedFromEvents(filteredEvents);
+
+    const users = unique(filteredEvents.map(r => r.user_id || r.session_id)).length;
+    const sessions = filteredEvents.length
+      ? unique(filteredEvents.map(r => r.session_id)).length
+      : sum(base, 'sessions');
+    const purchases = filteredEvents.length
+      ? filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'purchase').length
+      : sum(base, 'transactions');
+    const revenue = filteredEvents.length
+      ? filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'purchase').reduce((a,b)=>a+safeNum(b.revenue),0)
+      : sum(base, 'revenue');
+    const spend = sum(base, 'spend');
+    const conversionRate = sessions ? purchases / sessions : 0;
+    const roas = spend ? revenue / spend : 0;
+
+    document.getElementById('kpiUsers').textContent = fmt.int(users || 0);
+    document.getElementById('kpiSessions').textContent = fmt.int(sessions || 0);
+    document.getElementById('kpiPurchases').textContent = fmt.int(purchases || 0);
+    document.getElementById('kpiRevenue').textContent = fmt.money(revenue || 0);
+    document.getElementById('kpiConv').textContent = fmt.pct(conversionRate || 0);
+    document.getElementById('kpiRoas').textContent = fmt.ratio(roas || 0);
+
+    const scopeText = `
+      <div><strong>Rows in view:</strong> ${fmt.int(base.length)} aggregated rows and ${fmt.int(filteredEvents.length)} event rows</div>
+      <div style="margin-top:8px"><strong>Filters:</strong> ${['startDate','endDate','partnerFilter','channelFilter','campaignFilter'].map(id => {
+        const el = document.getElementById(id);
+        const label = id.replace('Filter','').replace(/[A-Z]/g, m => ' ' + m).trim();
+        const val = el.value || 'All';
+        return `${label}: <span class="mono">${val}</span>`;
+      }).join(' · ')}</div>
+    `;
+    document.getElementById('scopeBox').innerHTML = scopeText;
+
+    const insights = [];
+    if (sessions) insights.push(`Current view includes <strong>${fmt.int(sessions)}</strong> sessions and <strong>${fmt.int(purchases)}</strong> purchases, producing a conversion rate of <strong>${fmt.pct(conversionRate)}</strong>.`);
+    if (revenue) insights.push(`Tracked revenue is <strong>${fmt.money(revenue)}</strong>${spend ? ` on <strong>${fmt.money(spend)}</strong> spend for a ROAS of <strong>${fmt.ratio(roas)}</strong>` : ''}.`);
+    const partnerRows = buildPartnerTableRows();
+    if (partnerRows.length){
+      const topPartner = partnerRows[0];
+      insights.push(`<strong>${topPartner.partner}</strong> is the top revenue-driving partner with <strong>${fmt.money(topPartner.revenue)}</strong> and a conversion rate of <strong>${fmt.pct(topPartner.conversion_rate)}</strong>.`);
+    }
+    if (filteredEvents.length){
+      const pathInfo = computeSessionPaths(filteredEvents);
+      if (pathInfo.topPaths.length){
+        const topPath = pathInfo.topPaths[0];
+        insights.push(`Most common user path: <span class="mono">${topPath.path}</span> across <strong>${fmt.int(topPath.sessions)}</strong> sessions.`);
+      }
+      const attr = computeAttribution(filteredEvents);
+      if (attr.firstTouch.length && attr.lastTouch.length){
+        insights.push(`Attribution view shows <strong>${attr.firstTouch[0][0]}</strong> as the strongest first-touch partner, while <strong>${attr.lastTouch[0][0]}</strong> closes the most revenue on a last-touch basis.`);
+      }
+    }
+    document.getElementById('insightsBox').innerHTML = insights.length
+      ? insights.map(x => `<div class="insight">${x}</div>`).join('')
+      : `<div class="empty">Upload data to generate insights.</div>`;
+
+    // Event trend
+    const dailyEvents = groupCount(filteredEvents, r => getEventDate(r) || 'Unknown').slice(0, 100).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+    makeChart('eventTrendChart', {
+      type:'line',
+      data:{labels:dailyEvents.map(x=>x[0]), datasets:[{label:'Events', data:dailyEvents.map(x=>x[1]), borderWidth:3, tension:.25}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels:{display:false}}}
+    });
+
+    const topEvents = groupCount(filteredEvents, r => r.event_name || 'unknown').slice(0,10);
+    makeChart('eventTypeChart', {
+      type:'bar',
+      data:{labels:topEvents.map(x=>x[0]), datasets:[{label:'Event Count', data:topEvents.map(x=>x[1])}]},
+      options:{indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels:{anchor:'end', align:'right', color:'#334155'}}}
+    });
+
+    // Funnel
+    let funnel = {sessions:0, views:0, carts:0, purchases:0};
+    if (filteredEvents.length){
+      funnel.sessions = filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'session_start').length;
+      funnel.views = filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'view_product').length;
+      funnel.carts = filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'add_to_cart').length;
+      funnel.purchases = filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'purchase').length;
+    } else {
+      funnel.sessions = sum(base, 'sessions');
+      funnel.views = sum(base, 'product_views');
+      funnel.carts = sum(base, 'carts');
+      funnel.purchases = sum(base, 'transactions');
+    }
+    makeChart('funnelChart', {
+      type:'bar',
+      data:{labels:['Sessions','Product Views','Carts','Purchases'], datasets:[{label:'Count', data:[funnel.sessions, funnel.views, funnel.carts, funnel.purchases]}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels:{anchor:'end', align:'top', color:'#334155'}}}
+    });
+
+    const partnerRev = buildPartnerTableRows().slice(0,10);
+    makeChart('partnerRevenueChart', {
+      type:'bar',
+      data:{labels:partnerRev.map(x=>x.partner), datasets:[{label:'Revenue', data:partnerRev.map(x=>x.revenue)}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, datalabels:{anchor:'end', align:'top', formatter:(v)=>fmt.money(v), color:'#334155'}}}
+    });
+
+    const channelSource = filteredEvents.length
+      ? groupSum(filteredEvents.filter(r => String(r.event_name).toLowerCase() === 'purchase'), 'channel', 'revenue')
+      : groupSum(base, 'channel', 'revenue');
+    makeChart('channelChart', {
+      type:'doughnut',
+      data:{labels:channelSource.map(x=>x[0]), datasets:[{data:channelSource.map(x=>x[1])}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}, datalabels:{formatter:(v)=>fmt.money(v), color:'#334155'}}}
+    });
+
+    const pathInfo = computeSessionPaths(filteredEvents);
+    const topPaths = pathInfo.topPaths.slice(0,8);
+    makeChart('pathChart', {
+      type:'bar',
+      data:{labels:topPaths.map((x,i)=>`Path ${i+1}`), datasets:[{label:'Sessions', data:topPaths.map(x=>x.sessions)}]},
+      options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>`${ctx.parsed.y} sessions`}}, datalabels:{anchor:'end', align:'top', color:'#334155'}}}
+    });
+
+    const attr = computeAttribution(filteredEvents);
+    const partners = unique([...attr.firstTouch.map(x=>x[0]), ...attr.lastTouch.map(x=>x[0])]);
+    makeChart('attributionChart', {
+      type:'bar',
+      data:{
+        labels:partners,
+        datasets:[
+          {label:'First-touch Revenue', data:partners.map(p => (attr.firstTouch.find(x=>x[0]===p)||[p,0])[1])},
+          {label:'Last-touch Revenue', data:partners.map(p => (attr.lastTouch.find(x=>x[0]===p)||[p,0])[1])}
+        ]
+      },
+      options:{responsive:true, maintainAspectRatio:false, plugins:{datalabels:{display:false}}}
+    });
+
+    renderTable('pathTable',
+      [
+        {key:'path',label:'Path'},
+        {key:'sessions',label:'Sessions'},
+        {key:'conversions',label:'Conversions'},
+        {key:'conversion_rate',label:'Conversion Rate'},
+        {key:'revenue',label:'Revenue'}
+      ],
+      topPaths,
+      {conversion_rate:v=>fmt.pct(v), revenue:v=>fmt.money(v)}
+    );
+
+    renderTable('partnerTable',
+      [
+        {key:'partner',label:'Partner'},
+        {key:'sessions',label:'Sessions'},
+        {key:'purchases',label:'Purchases'},
+        {key:'conversion_rate',label:'Conversion Rate'},
+        {key:'revenue',label:'Revenue'},
+        {key:'spend',label:'Spend'},
+        {key:'roas',label:'ROAS'}
+      ],
+      partnerRows,
+      {
+        sessions:v=>fmt.int(v),
+        purchases:v=>fmt.int(v),
+        conversion_rate:v=>fmt.pct(v),
+        revenue:v=>fmt.money(v),
+        spend:v=>fmt.money(v),
+        roas:v=>fmt.ratio(v)
+      }
+    );
+  }
+
+  function exportPdf(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
+    let y = 40;
+    doc.setFontSize(20);
+    doc.text('Partner Product Analytics & Attribution Dashboard', 40, y);
+    y += 20;
+    doc.setFontSize(10);
+    doc.text('Executive summary exported from the interactive HTML dashboard.', 40, y);
+    y += 24;
+
+    const kpis = [
+      ['Unique Users', document.getElementById('kpiUsers').textContent],
+      ['Unique Sessions', document.getElementById('kpiSessions').textContent],
+      ['Purchases', document.getElementById('kpiPurchases').textContent],
+      ['Revenue', document.getElementById('kpiRevenue').textContent],
+      ['Conversion Rate', document.getElementById('kpiConv').textContent],
+      ['ROAS', document.getElementById('kpiRoas').textContent]
+    ];
+    doc.autoTable({startY:y, head:[['Metric','Value']], body:kpis, theme:'grid'});
+    y = doc.lastAutoTable.finalY + 18;
+
+    const partnerRows = buildPartnerTableRows().slice(0,10).map(r => [
+      r.partner, fmt.int(r.sessions), fmt.int(r.purchases), fmt.pct(r.conversion_rate), fmt.money(r.revenue), fmt.money(r.spend), fmt.ratio(r.roas)
+    ]);
+    doc.text('Top Partners', 40, y);
+    doc.autoTable({startY:y+8, head:[['Partner','Sessions','Purchases','Conversion Rate','Revenue','Spend','ROAS']], body:partnerRows, theme:'striped'});
+    y = doc.lastAutoTable.finalY + 18;
+
+    const pathInfo = computeSessionPaths(filteredEvents).topPaths.slice(0,8).map(r => [
+      r.path.length > 80 ? r.path.slice(0,77) + '...' : r.path, fmt.int(r.sessions), fmt.int(r.conversions), fmt.pct(r.conversion_rate), fmt.money(r.revenue)
+    ]);
+    doc.text('Top User Journey Paths', 40, y);
+    doc.autoTable({startY:y+8, head:[['Path','Sessions','Conversions','Conversion Rate','Revenue']], body:pathInfo, theme:'striped'});
+    doc.save('partner_product_analytics_dashboard.pdf');
+  }
+
+  document.getElementById('aggFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    parseCsvFile(file, rows => {
+      aggregatedRows = rows.map(r => ({
+        date: normalizeDate(r.date),
+        partner: r.partner || 'Unknown',
+        channel: r.channel || 'Unknown',
+        campaign: r.campaign || 'Unknown',
+        sessions: safeNum(r.sessions),
+        product_views: safeNum(r.product_views),
+        carts: safeNum(r.carts),
+        transactions: safeNum(r.transactions),
+        revenue: safeNum(r.revenue),
+        spend: safeNum(r.spend)
+      }));
+      refreshFilterOptions();
+      applyFilters();
+    });
+  });
+
+  document.getElementById('eventFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    parseCsvFile(file, rows => {
+      eventRows = rows.map(r => ({
+        event_time: r.event_time || r.date || '',
+        session_id: r.session_id || '',
+        user_id: r.user_id || '',
+        partner: r.partner || 'Unknown',
+        channel: r.channel || 'Unknown',
+        campaign: r.campaign || 'Unknown',
+        event_name: r.event_name || '',
+        page_name: r.page_name || '',
+        product_id: r.product_id || '',
+        revenue: safeNum(r.revenue)
+      }));
+      const dates = eventRows.map(getEventDate).filter(Boolean).sort();
+      if (dates.length){
+        document.getElementById('startDate').value = dates[0];
+        document.getElementById('endDate').value = dates[dates.length - 1];
+      }
+      refreshFilterOptions();
+      applyFilters();
+    });
+  });
+
+  document.getElementById('loadSampleBtn').addEventListener('click', () => {
+    aggregatedRows = sampleAggregated();
+    eventRows = sampleEvents();
+    document.getElementById('startDate').value = '2026-03-01';
+    document.getElementById('endDate').value = '2026-03-05';
+    refreshFilterOptions();
+    applyFilters();
+  });
+
+  document.getElementById('downloadAggBtn').addEventListener('click', () => csvDownload('sample_aggregated_partner_data.csv', sampleAggregated()));
+  document.getElementById('downloadEventBtn').addEventListener('click', () => csvDownload('sample_clickstream_event_data.csv', sampleEvents()));
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    aggregatedRows = [];
+    eventRows = [];
+    filteredAggregated = [];
+    filteredEvents = [];
+    document.getElementById('aggFile').value = '';
+    document.getElementById('eventFile').value = '';
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    document.getElementById('partnerFilter').value = 'All';
+    document.getElementById('channelFilter').value = 'All';
+    document.getElementById('campaignFilter').value = 'All';
+    refreshFilterOptions();
+    renderDashboard();
+  });
+
+  document.getElementById('applyBtn').addEventListener('click', applyFilters);
+  document.getElementById('exportPdfBtn').addEventListener('click', exportPdf);
+
+  refreshFilterOptions();
+  renderDashboard();
+</script>
+</body>
+</html>
